@@ -2378,10 +2378,10 @@ async function checkAuth(){
 
 function showLogin(){
     document.getElementById('dashboard-page').style.display='none';
-    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-dark);">
-        <div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:20px;padding:40px;width:100%;max-width:400px;">
-            <h2 style="text-align:center;margin-bottom:30px;">ورود به پنل</h2>
-            <div class="form-group"><label>رمز عبور</label><input class="form-input" type="password" id="login-pw"></div>
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0b0c0e;">
+        <div style="background:#18191c;border:1px solid #2a2b30;border-radius:20px;padding:40px;width:100%;max-width:400px;">
+            <h2 style="text-align:center;margin-bottom:30px;color:#fff;">ورود به پنل</h2>
+            <div style="margin-bottom:15px;"><label style="color:#86888d;">رمز عبور</label><input class="form-input" type="password" id="login-pw" style="width:100%;"></div>
             <button class="btn-primary" style="width:100%;" onclick="doLogin()">ورود</button>
         </div>
     </div>`;
@@ -2469,6 +2469,7 @@ async function loadStats(){
             <div class="stat-card"><div class="stat-label">ترافیک کل</div><div class="stat-val">${(data.total_traffic_mb||0).toFixed(1)} <small>MB</small></div></div>
             <div class="stat-card"><div class="stat-label">اتصالات فعال</div><div class="stat-val">${data.active_connections||0}</div></div>
             <div class="stat-card"><div class="stat-label">آپتایم</div><div class="stat-val">${data.uptime||'0:00:00'}</div></div>
+            <div class="stat-card"><div class="stat-label">درخواست‌ها</div><div class="stat-val">${data.total_requests||0}</div></div>
         `;
     }
 }
@@ -2484,17 +2485,17 @@ function renderLinks(links){
     const tb=$m('ltb');
     if(!tb) return;
     if(links.length === 0) {
-        tb.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">هیچ اینباندی یافت نشد</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:30px; color:#86888d;">هیچ اینباندی یافت نشد</td></tr>`;
         return;
     }
     tb.innerHTML = links.map(l => `
         <tr>
             <td><strong>${l.label}</strong></td>
             <td>${(l.used_bytes/1024/1024/1024).toFixed(2)} GB / ${l.limit_bytes > 0 ? (l.limit_bytes/1024/1024/1024).toFixed(2) + ' GB' : '∞'}</td>
-            <td><span style="color:${l.active?'var(--accent-green)':'var(--accent-red)'}">${l.active?'فعال':'غیرفعال'}</span></td>
+            <td><span style="color:${l.active?'#00c853':'#ff1744'}">${l.active?'فعال':'غیرفعال'}</span></td>
             <td>
-                <button class="btn-outline btn-sm" onclick="cpLink('${l.vless_link}')">کپی</button>
-                <button class="btn-danger btn-sm" onclick="delLink('${l.uuid}')">حذف</button>
+                <button class="btn-outline btn-sm" onclick="cpLink('${l.vless_link}')" style="cursor:pointer;">کپی</button>
+                <button class="btn-danger btn-sm" onclick="delLink('${l.uuid}')" style="cursor:pointer;">حذف</button>
             </td>
         </tr>
     `).join('');
