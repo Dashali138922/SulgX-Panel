@@ -2369,14 +2369,13 @@ PANEL_HTML = r"""<!DOCTYPE html>
 const $=s=>document.querySelector(s), $m=id=>document.getElementById(id);
 let isAuthenticated=false;
 
-// بررسی احراز هویت
+// چک کردن لاگین
 async function checkAuth(){
     try{const r=await fetch('/api/me');
-    if((await r.json()).authenticated){isAuthenticated=true; loadDashboard();}
+    if((await r.json()).authenticated){isAuthenticated=true; initDashboard();}
     else showLogin();}catch{showLogin();}
 }
 
-// صفحه لاگین
 function showLogin(){
     document.getElementById('dashboard-page').style.display='none';
     document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-dark);">
@@ -2388,21 +2387,18 @@ function showLogin(){
     </div>`;
 }
 
-// عملیات لاگین
 async function doLogin(){
     const pw=$m('login-pw').value;
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
-    if(r.ok){isAuthenticated=true; location.reload();}
+    if(r.ok){ location.reload(); }
     else alert('رمز عبور اشتباه است');
 }
 
-// خروج
 async function doLogout(){
     await fetch('/api/logout',{method:'POST'});
     location.reload();
 }
 
-// توابع مربوط به سایدبار و صفحات
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('sidebarOverlay').classList.toggle('open');
@@ -2416,36 +2412,35 @@ function switchPage(pageId) {
     if(window.innerWidth <= 992) toggleSidebar();
 }
 
-// ---------- این بخش باعث کار کردن دکمه‌های فرم می‌شود ----------
-// باز کردن مودال ایجاد اینباند
+// --- این بخش باعث کار کردن دکمه "ایجاد +" می‌شود ---
 function showAddMo() {
-    document.getElementById('mo-add').style.display = 'flex';
+    const modal = document.getElementById('mo-add');
+    if(modal) modal.style.display = 'flex';
 }
 
-// بستن مودال
 function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
+    const modal = document.getElementById(id);
+    if(modal) modal.style.display = 'none';
 }
 
-// عملیات ایجاد اینباند (دکمه "ایجاد" در فرم را فعال می‌کند)
 async function createLink(){
     const label = $m('nl').value.trim() || 'بدون نام';
     const limit_val = parseFloat($m('nv').value) || 0;
-    const body = { label: label, limit_value: limit_val, limit_unit: 'GB' };
+    
+    if(!label) return alert('لطفاً یک نام وارد کنید');
 
     try {
         const r = await fetch('/api/links', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body)
+            body: JSON.stringify({ label: label, limit_value: limit_val, limit_unit: 'GB' })
         });
         if(r.ok){
             alert('اینباند با موفقیت ساخته شد!');
             closeModal('mo-add');
-            // پاک کردن فرم
             $m('nl').value = '';
             $m('nv').value = '0';
-            loadLinks(); // بارگذاری مجدد لیست
+            loadLinks();
             loadStats();
         } else {
             const err = await r.json();
@@ -2456,8 +2451,7 @@ async function createLink(){
     }
 }
 
-// بارگذاری دشبورد
-async function loadDashboard(){
+async function initDashboard(){
     document.getElementById('dashboard-page').style.display='flex';
     if(window.innerWidth <= 992) document.getElementById('hamburgerBtn').style.display='block';
     await loadLinks();
@@ -2465,33 +2459,38 @@ async function loadDashboard(){
     setInterval(()=>{loadStats(); loadLinks();}, 10000);
 }
 
-// بارگذاری آمار
 async function loadStats(){
     const r=await fetch('/stats');
+    if(!r.ok) return;
     const data=await r.json();
     const container = document.getElementById('statsContainer');
-    container.innerHTML = `
-        <div class="stat-card"><div class="stat-label">ترافیک کل</div><div class="stat-val">${(data.total_traffic_mb||0).toFixed(1)} <small>MB</small></div></div>
-        <div class="stat-card"><div class="stat-label">اتصالات فعال</div><div class="stat-val">${data.active_connections||0}</div></div>
-        <div class="stat-card"><div class="stat-label">آپتایم</div><div class="stat-val">${data.uptime||'0:00:00'}</div></div>
-    `;
+    if(container) {
+        container.innerHTML = `
+            <div class="stat-card"><div class="stat-label">ترافیک کل</div><div class="stat-val">${(data.total_traffic_mb||0).toFixed(1)} <small>MB</small></div></div>
+            <div class="stat-card"><div class="stat-label">اتصالات فعال</div><div class="stat-val">${data.active_connections||0}</div></div>
+            <div class="stat-card"><div class="stat-label">آپتایم</div><div class="stat-val">${data.uptime||'0:00:00'}</div></div>
+        `;
+    }
 }
 
-// بارگذاری لیست اینباندها
 async function loadLinks(){
     const r=await fetch('/api/links');
+    if(!r.ok) return;
     const data=await r.json();
     renderLinks(data.links || []);
 }
 
-// نمایش لیست در جدول
 function renderLinks(links){
     const tb=$m('ltb');
     if(!tb) return;
+    if(links.length === 0) {
+        tb.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:30px; color:var(--text-muted);">هیچ اینباندی یافت نشد</td></tr>`;
+        return;
+    }
     tb.innerHTML = links.map(l => `
         <tr>
             <td><strong>${l.label}</strong></td>
-            <td>${(l.used_bytes/1024/1024/1024).toFixed(2)} GB</td>
+            <td>${(l.used_bytes/1024/1024/1024).toFixed(2)} GB / ${l.limit_bytes > 0 ? (l.limit_bytes/1024/1024/1024).toFixed(2) + ' GB' : '∞'}</td>
             <td><span style="color:${l.active?'var(--accent-green)':'var(--accent-red)'}">${l.active?'فعال':'غیرفعال'}</span></td>
             <td>
                 <button class="btn-outline btn-sm" onclick="cpLink('${l.vless_link}')">کپی</button>
@@ -2501,10 +2500,8 @@ function renderLinks(links){
     `).join('');
 }
 
-// کپی لینک
 function cpLink(txt){ navigator.clipboard.writeText(txt).then(()=>alert('لینک کپی شد')); }
 
-// حذف اینباند
 async function delLink(uid){ 
     if(confirm('آیا مطمئن هستید؟')){
         await fetch('/api/links/'+uid,{method:'DELETE'});
