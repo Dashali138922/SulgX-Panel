@@ -2366,33 +2366,17 @@ PANEL_HTML = r"""<!DOCTYPE html>
 </div>
 
 <script>
-// توابع اصلی برای مدیریت دینامیک صفحات
 const $=s=>document.querySelector(s), $m=id=>document.getElementById(id);
-let allLinks=[], allAddrs=[], isAuthenticated=false;
+let isAuthenticated=false;
 
-// توابع اولیه
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('open');
-}
-
-function switchPage(pageId) {
-    document.querySelectorAll('.page').forEach(p => p.style.display='none');
-    document.getElementById('page-'+pageId).style.display='block';
-    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-    document.querySelector(`.menu-item[data-page="${pageId}"]`).classList.add('active');
-    // در موبایل سایدبار بسته شود
-    if(window.innerWidth <= 992) toggleSidebar();
-}
-
-// هندل کردن لاگین
+// بررسی احراز هویت
 async function checkAuth(){
     try{const r=await fetch('/api/me');
     if((await r.json()).authenticated){isAuthenticated=true; loadDashboard();}
     else showLogin();}catch{showLogin();}
 }
+
+// صفحه لاگین
 function showLogin(){
     document.getElementById('dashboard-page').style.display='none';
     document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-dark);">
@@ -2403,6 +2387,8 @@ function showLogin(){
         </div>
     </div>`;
 }
+
+// عملیات لاگین
 async function doLogin(){
     const pw=$m('login-pw').value;
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
@@ -2410,17 +2396,76 @@ async function doLogin(){
     else alert('رمز عبور اشتباه است');
 }
 
+// خروج
+async function doLogout(){
+    await fetch('/api/logout',{method:'POST'});
+    location.reload();
+}
+
+// توابع مربوط به سایدبار و صفحات
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+function switchPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.style.display='none');
+    document.getElementById('page-'+pageId).style.display='block';
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    document.querySelector(`.menu-item[data-page="${pageId}"]`).classList.add('active');
+    if(window.innerWidth <= 992) toggleSidebar();
+}
+
+// ---------- این بخش باعث کار کردن دکمه‌های فرم می‌شود ----------
+// باز کردن مودال ایجاد اینباند
+function showAddMo() {
+    document.getElementById('mo-add').style.display = 'flex';
+}
+
+// بستن مودال
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+// عملیات ایجاد اینباند (دکمه "ایجاد" در فرم را فعال می‌کند)
+async function createLink(){
+    const label = $m('nl').value.trim() || 'بدون نام';
+    const limit_val = parseFloat($m('nv').value) || 0;
+    const body = { label: label, limit_value: limit_val, limit_unit: 'GB' };
+
+    try {
+        const r = await fetch('/api/links', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        if(r.ok){
+            alert('اینباند با موفقیت ساخته شد!');
+            closeModal('mo-add');
+            // پاک کردن فرم
+            $m('nl').value = '';
+            $m('nv').value = '0';
+            loadLinks(); // بارگذاری مجدد لیست
+            loadStats();
+        } else {
+            const err = await r.json();
+            alert('خطا: ' + (err.detail || 'مشکلی پیش آمده'));
+        }
+    } catch(e) {
+        alert('خطای ارتباط با سرور');
+    }
+}
+
 // بارگذاری دشبورد
 async function loadDashboard(){
     document.getElementById('dashboard-page').style.display='flex';
     if(window.innerWidth <= 992) document.getElementById('hamburgerBtn').style.display='block';
-    // لود کردن لیست لینک‌ها و آمار
     await loadLinks();
     await loadStats();
-    await loadAddrs();
     setInterval(()=>{loadStats(); loadLinks();}, 10000);
 }
 
+// بارگذاری آمار
 async function loadStats(){
     const r=await fetch('/stats');
     const data=await r.json();
@@ -2429,60 +2474,46 @@ async function loadStats(){
         <div class="stat-card"><div class="stat-label">ترافیک کل</div><div class="stat-val">${(data.total_traffic_mb||0).toFixed(1)} <small>MB</small></div></div>
         <div class="stat-card"><div class="stat-label">اتصالات فعال</div><div class="stat-val">${data.active_connections||0}</div></div>
         <div class="stat-card"><div class="stat-label">آپتایم</div><div class="stat-val">${data.uptime||'0:00:00'}</div></div>
-        <div class="stat-card"><div class="stat-label">درخواست‌ها</div><div class="stat-val">${data.total_requests||0}</div></div>
     `;
 }
 
+// بارگذاری لیست اینباندها
 async function loadLinks(){
     const r=await fetch('/api/links');
     const data=await r.json();
-    allLinks=data.links || [];
-    renderLinks(allLinks);
+    renderLinks(data.links || []);
 }
 
+// نمایش لیست در جدول
 function renderLinks(links){
     const tb=$m('ltb');
     if(!tb) return;
-    tb.innerHTML = links.map(l=>`
+    tb.innerHTML = links.map(l => `
         <tr>
             <td><strong>${l.label}</strong></td>
-            <td>${(l.used_bytes/1024/1024/1024).toFixed(2)} GB / ${(l.limit_bytes/1024/1024/1024).toFixed(2)} GB</td>
+            <td>${(l.used_bytes/1024/1024/1024).toFixed(2)} GB</td>
             <td><span style="color:${l.active?'var(--accent-green)':'var(--accent-red)'}">${l.active?'فعال':'غیرفعال'}</span></td>
             <td>
                 <button class="btn-outline btn-sm" onclick="cpLink('${l.vless_link}')">کپی</button>
-                ${l.label !== 'This Server is Free' ? `<button class="btn-danger btn-sm" onclick="delLink('${l.uuid}')">حذف</button>` : ''}
+                <button class="btn-danger btn-sm" onclick="delLink('${l.uuid}')">حذف</button>
             </td>
         </tr>
     `).join('');
 }
 
-function cpLink(txt){ navigator.clipboard.writeText(txt); alert('لینک کپی شد'); }
-async function delLink(uid){ if(confirm('حذف شود؟')){ await fetch('/api/links/'+uid,{method:'DELETE'}); loadLinks(); }}
+// کپی لینک
+function cpLink(txt){ navigator.clipboard.writeText(txt).then(()=>alert('لینک کپی شد')); }
 
-async function loadAddrs(){
-    const r=await fetch('/api/addresses');
-    const data=await r.json();
-    allAddrs=data.addresses || [];
-    const el=$m('addr-list');
-    el.innerHTML = allAddrs.map(a=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);"><span>${a}</span><button class="btn-danger btn-sm" onclick="delAddr('${a}')">حذف</button></div>`).join('');
+// حذف اینباند
+async function delLink(uid){ 
+    if(confirm('آیا مطمئن هستید؟')){
+        await fetch('/api/links/'+uid,{method:'DELETE'});
+        loadLinks(); 
+        loadStats();
+    }
 }
-async function addBatchAddrs(){
-    const raw=$m('batch-addrs').value;
-    const lines=raw.split('\n').filter(l=>l.trim());
-    await fetch('/api/addresses/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({addresses:lines})});
-    loadAddrs();
-}
-async function delAddr(addr){ await fetch('/api/addresses/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({addresses:[]})}); loadAddrs(); } // Note: simplified for example
 
-// اسکنر و سایر توابع
-async function startIPScan(){ /* منطق اسکنر ساده شده برای نمایش UI */ }
-
-// تنظیمات
-async function saveGeneralSettings(){ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})}); }
-
-// تغییر تم ساده
-function toggleTheme(){ document.body.classList.toggle('dark-theme'); }
-
+// اجرای اولیه برنامه
 checkAuth();
 </script>
 </body>
