@@ -2231,8 +2231,8 @@ PANEL_HTML = r"""<!DOCTYPE html>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-        <div class="logo-text">NERULA</div>
-        <div class="profile-icon">N</div>
+        <div class="logo-text">Vipira</div>
+        <div class="profile-icon">V</div>
     </div>
     <ul class="menu-list">
         <button class="menu-item active" data-page="dashboard" onclick="switchPage('dashboard')">
